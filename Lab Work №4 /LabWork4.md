@@ -527,7 +527,7 @@ API поддерживает 2 роли:
 
 ### Создать карту. Тест 2
 **Endpoint:** POST http://localhost:3000/api/v1/map`  
-**Auth:** Bearer token user_1
+**Auth:** Bearer moderator_1
 
 #### Request Body
 ```json
@@ -553,87 +553,167 @@ API поддерживает 2 роли:
 ![Создание карты. Тест 2](images/POST_maps_2.png)
 ---
 
-### 4.2 Получить список карт пользователя
-**Endpoint:** `GET /maps?limit=20&cursor=<cursor>&visibility=private|public`  
-**Auth:** требуется
-
-#### Query params
-- `limit` (optional, default 20, max 50)
-- `cursor` (optional) — курсор для следующей страницы
-- `visibility` (optional) — фильтр по видимости
+### Получить список карт пользователя
+**Endpoint:** `GET http://localhost:3000/api/v1/maps
+**Auth:** Bearer token moderator_1
 
 #### Response `200 OK`
 ```json
+ {
+    "items": [
+        {
+            "mapId": "map_a954768d",
+            "title": "Путешествие в Рим",
+            "visibility": "public",
+            "updatedAt": "2026-02-01T08:41:30.506Z"
+        },
+        {
+            "mapId": "map_0c1c7106",
+            "title": "Прогулка по центру",
+            "visibility": "private",
+            "updatedAt": "2026-02-01T08:37:48.959Z"
+        }
+    ],
+    "nextCursor": null
+}
+```
+![Получение карты. Тест 1](images/GET_maps_1.png)
+---
+
+### Получить список карт пользователя без авторизации 
+**Endpoint:** `GET http://localhost:3000/api/v1/maps`  
+**Auth:** No AUTH
+
+#### Response `401 Unauthorized`
+```json
 {
-  "items": [
-    {
-      "mapId": "map_123",
-      "title": "Прогулка по центру",
-      "visibility": "private",
-      "updatedAt": "2026-02-01T10:00:00Z"
+    "error": {
+        "code": "UNAUTHORIZED",
+        "message": "Отсутствует или неверный токен авторизации",
+        "details": []
     }
-  ],
-  "nextCursor": "cursor_abc"
 }
 ```
-
+![Получение карты. Тест 2](images/GET_maps_2.png)
 ---
 
-### 4.3 Получить карту по id
-**Endpoint:** `GET /maps/{mapId}`  
-**Auth:** требуется (для private — только владелец/модератор; public — доступно всем авторизованным)
+### Получить карту по id
+**Endpoint:** `GET http://localhost:3000/api/v1/maps/map_0c1c7106`  
+**Auth:** Bearer token moderator_1
 
-#### Response `200 OK`
+#### Response `200 ОК`
 ```json
 {
-  "mapId": "map_123",
-  "ownerId": "user_777",
-  "title": "Прогулка по центру",
-  "description": "Маршрут и точки интереса",
-  "visibility": "private",
-  "createdAt": "2026-02-01T10:00:00Z",
-  "updatedAt": "2026-02-01T10:00:00Z"
+    "mapId": "map_0c1c7106",
+    "ownerId": "moderator_1",
+    "title": "Прогулка по центру",
+    "description": "Маршрут и точки интереса",
+    "visibility": "private",
+    "createdAt": "2026-02-01T08:37:48.959Z",
+    "updatedAt": "2026-02-01T08:37:48.959Z"
 }
 ```
-
+![Получение карты. Тест 3](images/GET_maps_mapid_1.png)
 ---
 
-### 4.4 Обновить карту (повышенная сложность)
-**Endpoint:** `PUT /maps/{mapId}`  
-**Auth:** требуется (владелец или модератор)
+### Получить карту по неверному id
+**Endpoint:** `GET http://localhost:3000/api/v1/maps/map_0c1c710645`  
+**Auth:** Bearer token moderator_1
+
+#### Response `404 Not Found`
+```json
+ {
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "Карта не найдена",
+        "details": []
+    }
+}
+```
+![Получение карты. Тест 4](images/GET_maps_mapid_2.png)
+---
+
+### Обновить карту по id. Тест 1
+**Endpoint:** `PUT http://localhost:3000/api/v1/maps/map_1df028c5`  
+**Auth:**  Bearer token moderator_1
 
 #### Request Body
 ```json
 {
-  "title": "Прогулка по центру (обновлено)",
-  "description": "Добавлены новые точки",
-  "visibility": "public"
+   "title": "Лучшая прогулка по центру"
 }
 ```
 
 #### Response `200 OK`
 ```json
+ {
+    "mapId": "map_1df028c5",
+    "ownerId": "moderator_1",
+    "title": "Лучшая прогулка по центру",
+    "description": "Маршрут и точки интереса",
+    "visibility": "private",
+    "createdAt": "2026-02-01T09:29:15.765Z",
+    "updatedAt": "2026-02-01T09:31:08.568Z"
+}
+```
+![Обновление карты. Тест 1](images/PUT_maps_mapid_1.png)
+---
+
+### Обновить карту по id. Тест 2
+**Endpoint:** `PUT http://localhost:3000/api/v1/maps/map_map_dbcb04b`  
+**Auth:**  Bearer token moderator_1
+
+#### Request Body
+```json
 {
-  "mapId": "map_123",
-  "ownerId": "user_777",
-  "title": "Прогулка по центру (обновлено)",
-  "description": "Добавлены новые точки",
-  "visibility": "public",
-  "createdAt": "2026-02-01T10:00:00Z",
-  "updatedAt": "2026-02-01T11:00:00Z"
+   "visibility": "private"
 }
 ```
 
+#### Response `200 OK`
+```json
+ {
+    "mapId": "map_dbcb04bd",
+    "ownerId": "moderator_1",
+    "title": "Путешествие в Рим",
+    "description": "Древнейший город мира",
+    "visibility": "private",
+    "createdAt": "2026-02-01T09:29:46.275Z",
+    "updatedAt": "2026-02-01T09:32:54.484Z"
+}
+```
+![Обновление карты. Тест 2](images/PUT_maps_mapid_2.png)
 ---
 
-### 4.5 Удалить карту (повышенная сложность)
-**Endpoint:** `DELETE /maps/{mapId}`  
-**Auth:** требуется (владелец или модератор)
+### Удалить карту 
+**Endpoint:** `DELETE http://localhost:3000/api/v1/maps/map_dbcb04bd`  
+**Auth:**  Bearer token moderator_1
 
-#### Response
-- `204 No Content` — карта удалена
-- `404 Not Found` — карты нет (выбираем этот вариант для ясности тестов)
+#### Response `200 OK`
+```json
+  {
+    "mapId": "map_dbcb04bd",
+    "deleted": true
+}
+```
+![Удаление карты. Тест 1](images/DELETE_maps_mapid_1.png)
+---
 
+### Удалить несуществующую карту 
+**Endpoint:** `DELETE http://localhost:3000/api/v1/maps/map_dbcb04bd`  
+**Auth:**  Bearer token moderator_1
+
+#### Response `404 Not Found`
+```json
+   {
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "Карта не найдена",
+        "details": []
+    }
+}
+```
+![Удаление карты. Тест 2](images/DELETE_maps_mapid_2.png)
 ---
 
 ## 5. Elements API (элементы карты)
