@@ -1,0 +1,1027 @@
+{
+  "info": {
+    "name": "Mental Maps API - LW4 (GET_POST_PUT_DELETE tests)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Healthcheck - OK",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+              "pm.test(\"Response has status=ok\", function () { const j = pm.response.json(); pm.expect(j.status).to.eql(\"ok\"); pm.expect(j.version).to.eql(\"v1\"); });"
+            ]
+          }
+        },
+        {
+          "name": "PUT /maps/:mapId - OK (update map)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/{mapId}"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Прогулка по центру (обновлено)\",\n  \"description\": \"Обновленное описание\",\n  \"visibility\": \"public\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response has updated fields\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.mapId).to.eql(pm.environment.get(\"mapId\"));",
+                  "  pm.expect(j.title).to.eql(\"Прогулка по центру (обновлено)\");",
+                  "  pm.expect(j.visibility).to.eql(\"public\");",
+                  "  pm.expect(j.updatedAt).to.be.a(\"string\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /maps/:mapId - 400 (bad visibility)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/{mapId}"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"visibility\": \"closed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Validation error\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error code is VALIDATION_ERROR and mentions visibility\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.error.code).to.eql(\"VALIDATION_ERROR\");",
+                  "  const details = j.error.details || [];",
+                  "  pm.expect(details.some(d => d.field === \"visibility\")).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /maps - OK (create map for delete)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Карта для удаления\",\n  \"description\": \"Будет удалена в тесте\",\n  \"visibility\": \"private\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Response contains mapId and ownerId\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property(\"mapId\");",
+                  "  pm.expect(j).to.have.property(\"ownerId\");",
+                  "  pm.environment.set(\"mapIdDelete\", j.mapId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /maps/:mapId - OK (delete map)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/{mapIdDelete}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response confirms deletion\", function () { const j = pm.response.json(); pm.expect(j.deleted).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /maps/:mapId - 404 (not found)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/map_no_such"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404 Not Found\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error code is NOT_FOUND\", function () { const j = pm.response.json(); pm.expect(j.error.code).to.eql(\"NOT_FOUND\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /maps/:mapId/elements/:elementId - OK (update element)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/{mapId}/elements/{elementId}"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"content\": \"Красная площадь (обновлено)\",\n  \"style\": {\n    \"color\": \"#00AAFF\",\n    \"size\": 14\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response has updated content\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.elementId).to.eql(pm.environment.get(\"elementId\"));",
+                  "  pm.expect(j.content).to.eql(\"Красная площадь (обновлено)\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /maps/:mapId/elements/:elementId - 400 (x is string)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/{mapId}/elements/{elementId}"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"x\": \"55.7\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Validation error\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error code is VALIDATION_ERROR and mentions x\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.error.code).to.eql(\"VALIDATION_ERROR\");",
+                  "  const details = j.error.details || [];",
+                  "  pm.expect(details.some(d => d.field === \"x\")).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /maps/:mapId/elements/:elementId - OK (delete element)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/{mapId}/elements/{elementId}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response confirms deletion\", function () { const j = pm.response.json(); pm.expect(j.deleted).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /maps/:mapId/elements/:elementId - 404 (not found)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/{mapId}/elements/el_no_such"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404 Not Found\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error code is NOT_FOUND\", function () { const j = pm.response.json(); pm.expect(j.error.code).to.eql(\"NOT_FOUND\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Maps",
+      "item": [
+        {
+          "name": "POST /maps - OK (create map)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Прогулка по центру\",\n  \"description\": \"Маршрут и точки интереса\",\n  \"visibility\": \"private\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Response contains mapId and ownerId\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property(\"mapId\");",
+                  "  pm.expect(j).to.have.property(\"ownerId\");",
+                  "  pm.expect([\"private\",\"public\"]).to.include(j.visibility);",
+                  "  pm.environment.set(\"mapId\", j.mapId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /maps - 400 (missing title)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"description\": \"Нет title — ожидаем 400\",\n  \"visibility\": \"private\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Validation error\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error payload is VALIDATION_ERROR and mentions title\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.error.code).to.eql(\"VALIDATION_ERROR\");",
+                  "  const details = j.error.details || [];",
+                  "  pm.expect(details.some(d => d.field === \"title\")).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /maps - OK (list maps)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response has items array\", function () { const j = pm.response.json(); pm.expect(j.items).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /maps - 401 (no auth)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/maps"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 401 Unauthorized\", function () { pm.response.to.have.status(401); });",
+                  "pm.test(\"Error code is UNAUTHORIZED\", function () { const j = pm.response.json(); pm.expect(j.error.code).to.eql(\"UNAUTHORIZED\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /maps/:mapId - OK (owner)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/{mapId}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response has requested mapId\", function () { const j = pm.response.json(); pm.expect(j.mapId).to.eql(pm.environment.get(\"mapId\")); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /maps/:mapId - 403 (other user)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenOtherUser}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/{mapId}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 403 Forbidden\", function () { pm.response.to.have.status(403); });",
+                  "pm.test(\"Error code is FORBIDDEN\", function () { const j = pm.response.json(); pm.expect(j.error.code).to.eql(\"FORBIDDEN\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Elements",
+      "item": [
+        {
+          "name": "POST /maps/:mapId/elements - OK (add element)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/{mapId}/elements"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"point\",\n  \"x\": 55.751244,\n  \"y\": 37.618423,\n  \"content\": \"Красная площадь\",\n  \"style\": {\n    \"color\": \"#FFAA00\",\n    \"size\": 12\n  }\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Response contains elementId and mapId\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j).to.have.property(\"elementId\");",
+                  "  pm.expect(j.mapId).to.eql(pm.environment.get(\"mapId\"));",
+                  "  pm.environment.set(\"elementId\", j.elementId);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /maps/:mapId/elements - 400 (x is string)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/{mapId}/elements"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"point\",\n  \"x\": \"55.7\",\n  \"y\": 37.618423,\n  \"content\": \"x не число\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Validation error\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error code is VALIDATION_ERROR and mentions x\", function () { const j = pm.response.json(); pm.expect(j.error.code).to.eql(\"VALIDATION_ERROR\"); const details = j.error.details || []; pm.expect(details.some(d => d.field === \"x\")).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /maps/:mapId/elements - OK (list elements)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/{mapId}/elements"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response has items array\", function () { const j = pm.response.json(); pm.expect(j.items).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /maps/:mapId/elements - 404 (map not found)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/maps/map_no_such/elements"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404 Not Found\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error code is NOT_FOUND\", function () { const j = pm.response.json(); pm.expect(j.error.code).to.eql(\"NOT_FOUND\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "POST /reports - OK (create report)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mapId\": \"{{mapId}}\",\n  \"reason\": \"Неприемлемый контент\",\n  \"comment\": \"На карте присутствуют оскорбления\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201 Created\", function () { pm.response.to.have.status(201); });",
+                  "pm.test(\"Response contains reportId and status=new\", function () { const j = pm.response.json(); pm.expect(j).to.have.property(\"reportId\"); pm.expect(j.status).to.eql(\"new\"); pm.environment.set(\"reportId\", j.reportId); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST /reports - 404 (map not found)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mapId\": \"map_no_such\",\n  \"reason\": \"Спам\",\n  \"comment\": \"Карта не существует\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404 Not Found\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error code is NOT_FOUND\", function () { const j = pm.response.json(); pm.expect(j.error.code).to.eql(\"NOT_FOUND\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /reports - OK (moderator)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenModerator}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response has items array\", function () { const j = pm.response.json(); pm.expect(j.items).to.be.an(\"array\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET /reports - 403 (user forbidden)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenUser}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 403 Forbidden\", function () { pm.response.to.have.status(403); });",
+                  "pm.test(\"Error code is FORBIDDEN\", function () { const j = pm.response.json(); pm.expect(j.error.code).to.eql(\"FORBIDDEN\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+        },
+        {
+          "name": "PUT /reports/:reportId - OK (update status)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenModerator}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/{reportId}"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"resolved\",\n  \"comment\": \"Проверено, нарушение подтверждено\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response has updated status\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.reportId).to.eql(pm.environment.get(\"reportId\"));",
+                  "  pm.expect(j.status).to.eql(\"resolved\");",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PUT /reports/:reportId - 400 (bad status)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenModerator}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/{reportId}"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"closed\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 Validation error\", function () { pm.response.to.have.status(400); });",
+                  "pm.test(\"Error code is VALIDATION_ERROR and mentions status\", function () {",
+                  "  const j = pm.response.json();",
+                  "  pm.expect(j.error.code).to.eql(\"VALIDATION_ERROR\");",
+                  "  const details = j.error.details || [];",
+                  "  pm.expect(details.some(d => d.field === \"status\")).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /reports/:reportId - OK (delete report)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenModerator}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/{reportId}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () { pm.response.to.have.status(200); });",
+                  "pm.test(\"Response confirms deletion\", function () { const j = pm.response.json(); pm.expect(j.deleted).to.eql(true); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "DELETE /reports/:reportId - 404 (not found)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tokenModerator}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/reports/rep_no_such"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 404 Not Found\", function () { pm.response.to.have.status(404); });",
+                  "pm.test(\"Error code is NOT_FOUND\", function () { const j = pm.response.json(); pm.expect(j.error.code).to.eql(\"NOT_FOUND\"); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
