@@ -716,168 +716,382 @@ API поддерживает 2 роли:
 ![Удаление карты. Тест 2](images/DELETE_maps_mapid_2.png)
 ---
 
-## 5. Elements API (элементы карты)
+## 2. Elements API (элементы карты)
 
-### 5.1 Добавить элемент в карту
-**Endpoint:** `POST /maps/{mapId}/elements`  
-**Auth:** требуется (владелец или модератор)
+### Добавить элемент на карту
+**Endpoint:** ` POST http://localhost:3000/api/v1/maps/map_1df028c5/elements`  
+**Auth:**  Bearer token moderator_1
 
 #### Request Body
 ```json
 {
-  "type": "point",
-  "x": 55.751244,
-  "y": 37.618423,
-  "content": "Красная площадь",
-  "style": {
-    "color": "#FFAA00",
-    "size": 12
-  }
+    "type": "Иконка",
+    "x": 100.3,
+    "y": 23.4,
+    "content": "Высокий дом с кирпичной крышей"
+} 
+```
+
+#### Response `201 Created`
+```json
+ {
+    "elementId": "el_1691cd79",
+    "mapId": "map_1df028c5",
+    "type": "Иконка",
+    "x": 100.3,
+    "y": 23.4,
+    "content": "Высокий дом с кирпичной крышей",
+    "style": {},
+    "createdAt": "2026-02-01T09:54:24.099Z"
+}
+```
+![Создание элемента. Тест 1](images/POST_elements_1.png)
+---
+
+### Добавить элемент на карту другого пользователя
+**Endpoint:** `POST http://localhost:3000/api/v1/maps/map_1df028c5/elements`  
+**Auth:**  Bearer token user_777
+
+#### Request Body
+```json
+ {
+    "type": "Иконка",
+    "x": 100.3,
+    "y": 23.4,
+    "content": "Высокий дом с кирпичной крышей"
+} 
+```
+
+#### Response `403 Forbidden`
+```json
+  {
+    "error": {
+        "code": "FORBIDDEN",
+        "message": "Недостаточно прав для изменения карты",
+        "details": []
+    }
+}
+```
+![Создание элемента. Тест 2](images/POST_elements_2.png)
+---
+
+### Получить элементы карты
+**Endpoint:** `GET http://localhost:3000/api/v1/maps/map_1df028c5/elements`  
+**Auth:**  Bearer token moderator_1
+
+#### Response `200 OK`
+```json
+{
+    "items": [
+        {
+            "elementId": "el_1691cd79",
+            "type": "Иконка",
+            "x": 100.3,
+            "y": 23.4,
+            "content": "Высокий дом с кирпичной крышей"
+        },
+        {
+            "elementId": "el_55adbc7d",
+            "type": "Кнопка",
+            "x": 50.3,
+            "y": 27.4,
+            "content": "Магазин"
+        }
+    ]
+}
+```
+![Получение элемента. Тест 1](images/GET_elements_1.png)
+---
+
+### Получить элементы несуществующей карты
+**Endpoint:** `GET http://localhost:3000/api/v1/maps/map_1df028c51/elements`  
+**Auth:**  Bearer token moderator_1
+
+#### Response `404 Not Found`
+```json
+{
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "Карта не найдена",
+        "details": []
+    }
+}
+```
+![Получение элемента. Тест 2](images/GET_elements_2.png)
+---
+
+### Обновить элемент
+**Endpoint:** ` PUT http://localhost:3000/api/v1/maps/map_1df028c5/elements/el_1691cd79`  
+**Auth:**  Bearer token moderator_1
+
+#### Request Body
+```json
+ {
+    "content": "Старинный дом с кирпичной крышей"
+}
+```
+
+#### Response `200 OK`
+```json
+ {
+    "elementId": "el_1691cd79",
+    "mapId": "map_1df028c5",
+    "type": "Иконка",
+    "x": 100.3,
+    "y": 23.4,
+    "content": "Старинный дом с кирпичной крышей",
+    "style": {},
+    "createdAt": "2026-02-01T09:54:24.099Z"
+}
+```
+![Обновление элемента. Тест 1](images/PUT_elements_1.png)
+---
+
+### Обновить элемент (параметр), которого не существует
+**Endpoint:** ` PUT http://localhost:3000/api/v1/maps/map_1df028c5/elements/el_1691cd79`  
+**Auth:**  Bearer token moderator_1
+
+#### Request Body
+```json
+ {
+    "STRANGE_PARAMETR": "101010"
+}
+```
+
+#### Response `200 OK`
+```json
+{
+    "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "Некорректные параметры запроса",
+        "details": [
+            {
+                "field": "body",
+                "issue": "no_updatable_fields"
+            }
+        ]
+    }
+}
+```
+![Обновление элемента. Тест 2](images/PUT_elements_2.png)
+---
+
+### Удалить элемент
+**Endpoint:** : `DELETE http://localhost:3000/api/v1/maps/map_1df028c5/elements/el_1691cd79`  
+**Auth:**  Bearer token moderator_1
+
+#### Response `200 ОК`
+```json
+ {
+    "elementId": "el_1691cd79",
+    "deleted": true
+}
+```
+![Удаление элемента. Тест 1](images/DELETE_elements_1.png)
+---
+
+### Удалить несуществующий элемент
+**Endpoint:** : `DELETE http://localhost:3000/api/v1/maps/map_1df028c5/elements/el_1691cd79`  
+**Auth:**  Bearer token moderator_1
+
+#### Response `404 Not Found`
+```json
+ {
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "Элемент не найден",
+        "details": []
+    }
+}
+```
+![Удаление элемента. Тест 2](images/DELETE_elements_2.png)
+---
+
+## 3. Reports API (жалобы и модерация)
+
+### Создать жалобу
+**Endpoint:** `POST http://localhost:3000/api/v1/reports `  
+**Auth:** Bearer token moderator_1
+
+#### Request Body
+```json
+{
+    "mapId": "map_1df028c5",
+    "reason": "Спам",
+    "comment": "Множество таких карт уже есть"
 }
 ```
 
 #### Response `201 Created`
 ```json
+ {
+    "reportId": "rep_a80c9f7e",
+    "mapId": "map_1df028c5",
+    "authorId": "user_777",
+    "reason": "Спам",
+    "comment": "Множество таких карт уже есть",
+    "status": "new",
+    "createdAt": "2026-02-01T10:15:38.309Z"
+}
+```
+![Создание жалобы. Тест 1](images/POST_reports_1.png)
+---
+
+### Создать жалобу с пустым body
+**Endpoint:** `POST http://localhost:3000/api/v1/reports `  
+**Auth:** Bearer token moderator_1
+
+#### Request Body
+```json
 {
-  "elementId": "el_900",
-  "mapId": "map_123",
-  "type": "point",
-  "x": 55.751244,
-  "y": 37.618423,
-  "content": "Красная площадь",
-  "style": { "color": "#FFAA00", "size": 12 },
-  "createdAt": "2026-02-01T10:05:00Z"
+
 }
 ```
 
----
-
-### 5.2 Получить элементы карты
-**Endpoint:** `GET /maps/{mapId}/elements`  
-**Auth:** требуется (как и для чтения карты)
-
-#### Response `200 OK`
+#### Response `400 Bad Request`
 ```json
-{
-  "items": [
-    {
-      "elementId": "el_900",
-      "type": "point",
-      "x": 55.751244,
-      "y": 37.618423,
-      "content": "Красная площадь"
+ {
+    "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "Некорректные параметры запроса",
+        "details": [
+            {
+                "field": "mapId",
+                "issue": "required"
+            },
+            {
+                "field": "reason",
+                "issue": "required"
+            }
+        ]
     }
-  ]
 }
 ```
-
+![Создание жалобы. Тест 2](images/POST_reports_2.png)
 ---
 
-### 5.3 Обновить элемент (повышенная сложность)
-**Endpoint:** `PUT /maps/{mapId}/elements/{elementId}`  
-**Auth:** требуется
-
-#### Request Body
-```json
-{
-  "content": "Красная площадь (обновлено)",
-  "style": { "color": "#00AAFF", "size": 14 }
-}
-```
+### Получить список жалоб (модератор)
+**Endpoint:** `GET http://localhost:3000/api/v1/reports`  
+**Auth:** Bearer token moderator_1
 
 #### Response `200 OK`
 ```json
 {
-  "elementId": "el_900",
-  "mapId": "map_123",
-  "content": "Красная площадь (обновлено)",
-  "style": { "color": "#00AAFF", "size": 14 },
-  "updatedAt": "2026-02-01T10:15:00Z"
+    "items": [
+        {
+            "reportId": "rep_a80c9f7e",
+            "mapId": "map_1df028c5",
+            "status": "new",
+            "reason": "Спам",
+            "createdAt": "2026-02-01T10:15:38.309Z"
+        }
+    ],
+    "nextCursor": null
 }
 ```
-
+![Получение жалобы. Тест 1](images/GET_reports_1.png)
 ---
 
-### 5.4 Удалить элемент (повышенная сложность)
-**Endpoint:** `DELETE /maps/{mapId}/elements/{elementId}`  
-**Auth:** требуется  
-**Response:** `204 No Content`
-
----
-
-## 6. Reports API (жалобы и модерация)
-
-### 6.1 Создать жалобу
-**Endpoint:** `POST /reports`  
-**Auth:** требуется
-
-#### Request Body
+### Получить список жалоб (не модератор)
+**Endpoint:** `GET http://localhost:3000/api/v1/reports`  
+**Auth:** Bearer token user_777
+#### Response `403 Forbidden`
 ```json
 {
-  "mapId": "map_123",
-  "reason": "Неприемлемый контент",
-  "comment": "На карте присутствуют оскорбления"
-}
-```
-
-#### Response `201 Created`
-```json
-{
-  "reportId": "rep_501",
-  "mapId": "map_123",
-  "authorId": "user_777",
-  "reason": "Неприемлемый контент",
-  "comment": "На карте присутствуют оскорбления",
-  "status": "new",
-  "createdAt": "2026-02-01T10:20:00Z"
-}
-```
-
----
-
-### 6.2 Получить список жалоб (модератор)
-**Endpoint:** `GET /reports?status=new|in_review|resolved&limit=20&cursor=<cursor>`  
-**Auth:** требуется **роль модератора**
-
-#### Response `200 OK`
-```json
-{
-  "items": [
-    {
-      "reportId": "rep_501",
-      "mapId": "map_123",
-      "status": "new",
-      "reason": "Неприемлемый контент",
-      "createdAt": "2026-02-01T10:20:00Z"
+    "error": {
+        "code": "FORBIDDEN",
+        "message": "Недостаточно прав: требуется роль модератора",
+        "details": []
     }
-  ],
-  "nextCursor": "cursor_xyz"
 }
 ```
-
+![Получение жалобы. Тест 2](images/GET_reports_2.png)
 ---
 
-### 6.3 Изменить статус жалобы (модератор) (повышенная сложность)
-**Endpoint:** `PUT /reports/{reportId}`  
-**Auth:** требуется **роль модератора**
+### Изменить статус жалобы (модератор) 
+**Endpoint:** `PUT http://localhost:3000/api/v1/reports/rep_a80c9f7e`  
+**Auth:** Bearer token moderator_1
 
 #### Request Body
 ```json
 {
-  "status": "resolved",
-  "moderatorComment": "Контент удалён, жалоба закрыта"
+    "status": "resolved"
 }
 ```
 
 #### Response `200 OK`
 ```json
-{
-  "reportId": "rep_501",
-  "status": "resolved",
-  "moderatorComment": "Контент удалён, жалоба закрыта",
-  "updatedAt": "2026-02-01T10:30:00Z"
+ {
+    "reportId": "rep_a80c9f7e",
+    "mapId": "map_1df028c5",
+    "authorId": "user_777",
+    "reason": "Спам",
+    "comment": "Множество таких карт уже есть",
+    "status": "resolved",
+    "createdAt": "2026-02-01T10:15:38.309Z"
 }
 ```
+![Изменение жалобы. Тест 1](images/PUT_reports_1.png)
+---
+
+### Изменить статус жалобы с неправильным форматом данных
+**Endpoint:** `PUT http://localhost:3000/api/v1/reports/rep_a80c9f7e`  
+**Auth:** Bearer token moderator_1
+
+#### Request Body
+```json
+{
+   "comment": 12345 //Комментарий не строка
+}
+```
+
+#### Response `400 Bad Request`
+```json
+{
+    "error": {
+        "code": "VALIDATION_ERROR",
+        "message": "Некорректные параметры запроса",
+        "details": [
+            {
+                "field": "comment",
+                "issue": "must be string"
+            }
+        ]
+    }
+}
+```
+![Изменение жалобы. Тест 2](images/PUT_reports_2.png)
+---
+
+### Удалить жалобу
+**Endpoint:** : `DELETE  http://localhost:3000/api/v1/reports/rep_a80c9f7e`  
+**Auth:**  Bearer token moderator_1
+
+#### Response `200 ОК`
+```json
+ {
+    "reportId": "rep_a80c9f7e",
+    "deleted": true
+}
+```
+![Удаление жалобы. Тест 1](images/DELETE_reports_1.png)
+---
+
+### Удалить несуществующую  жалобу
+**Endpoint:** : `DELETE http://localhost:3000/api/v1/reports/rep_a80c9f7e34`  
+**Auth:**  Bearer token moderator_1
+
+#### Response `404 Not Found `
+```json
+ {
+    "error": {
+        "code": "NOT_FOUND",
+        "message": "Жалоба не найдена",
+        "details": []
+    }
+}
+```
+![Удаление жалобы. Тест 2](images/DELETE_reports_2.png)
 ---
 
 # Выводы
