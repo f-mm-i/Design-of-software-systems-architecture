@@ -616,3 +616,552 @@ module.exports = { MapsServiceDecorator, LoggingMapsServiceDecorator };
 Decorator позволяет расширять функциональность сервиса без изменения его основного кода, что соответствует принципу открытости/закрытости.
 
 ---
+
+## III. Поведенческие шаблоны
+
+### 1. Strategy
+
+**Название:** Strategy (Стратегия)
+
+**Общее назначение:**  
+Шаблон Strategy определяет семейство алгоритмов, инкапсулирует каждый из них и делает их взаимозаменяемыми.
+
+**Назначение в проекте:**  
+В проекте *Mental Maps* шаблон Strategy используется для валидации различных типов элементов карты.  
+Элементы карты (`point`, `note`, `route`) имеют разный набор обязательных полей, поэтому единая проверка в маршруте `POST /maps/:mapId/elements` быстро становится громоздкой.  
+Вынесение логики в отдельные стратегии позволяет выбирать нужный алгоритм проверки в зависимости от типа элемента.
+
+**Назначение согласно реализуемому функционалу:**  
+Strategy применяется при обработке запроса создания элемента карты:
+- `point` → проверка координат `x`, `y`;
+- `note` → проверка текста и позиции;
+- `route` → проверка начальных и конечных координат.
+
+**UML-диаграмма:**  
+![](behavioral_strategy.png)
+
+**Фрагмент программного кода:**  
+```js
+class ElementValidationStrategy {
+  validate(_payload) {
+    throw new Error("Метод validate должен быть переопределён");
+  }
+}
+
+class PointValidationStrategy extends ElementValidationStrategy {
+  validate(payload) {
+    const errors = [];
+    if (typeof payload.x !== "number") errors.push({ field: "x", issue: "must be number" });
+    if (typeof payload.y !== "number") errors.push({ field: "y", issue: "must be number" });
+    return errors;
+  }
+}
+
+class NoteValidationStrategy extends ElementValidationStrategy {
+  validate(payload) {
+    const errors = [];
+    if (typeof payload.x !== "number") errors.push({ field: "x", issue: "must be number" });
+    if (typeof payload.y !== "number") errors.push({ field: "y", issue: "must be number" });
+    if (!payload.content || typeof payload.content !== "string") {
+      errors.push({ field: "content", issue: "required string" });
+    }
+    return errors;
+  }
+}
+
+class RouteValidationStrategy extends ElementValidationStrategy {
+  validate(payload) {
+    const errors = [];
+    if (typeof payload.startX !== "number") errors.push({ field: "startX", issue: "must be number" });
+    if (typeof payload.startY !== "number") errors.push({ field: "startY", issue: "must be number" });
+    if (typeof payload.endX !== "number") errors.push({ field: "endX", issue: "must be number" });
+    if (typeof payload.endY !== "number") errors.push({ field: "endY", issue: "must be number" });
+    return errors;
+  }
+}
+
+class ElementValidationContext {
+  constructor(strategy) {
+    this.strategy = strategy;
+  }
+
+  setStrategy(strategy) {
+    this.strategy = strategy;
+  }
+
+  validate(payload) {
+    return this.strategy.validate(payload);
+  }
+}
+
+function resolveValidationStrategy(type) {
+  switch (type) {
+    case "point":
+      return new PointValidationStrategy();
+    case "note":
+      return new NoteValidationStrategy();
+    case "route":
+      return new RouteValidationStrategy();
+    default:
+      throw new Error("Неизвестный тип элемента");
+  }
+}
+
+module.exports = {
+  ElementValidationStrategy,
+  PointValidationStrategy,
+  NoteValidationStrategy,
+  RouteValidationStrategy,
+  ElementValidationContext,
+  resolveValidationStrategy
+};
+```
+
+**Вывод:**  
+Strategy делает код маршрута чище и позволяет добавлять новые типы элементов без переписывания общей логики.
+
+---
+
+### 2. Command
+
+**Название:** Command (Команда)
+
+**Общее назначение:**  
+Шаблон Command инкапсулирует запрос как отдельный объект, позволяя параметризовать клиентов командами, откладывать выполнение, логировать действия и строить историю операций.
+
+**Назначение в проекте:**  
+В проекте *Mental Maps* Command используется для представления основных действий пользователя как отдельных команд:
+- создание карты;
+- добавление элемента карты;
+- создание жалобы.
+
+Это особенно удобно, когда нужно отделить обработчик HTTP-запроса от фактической логики выполнения операции.
+
+**Назначение согласно реализуемому функционалу:**  
+Command может использоваться в маршрутах:
+- `POST /maps`
+- `POST /maps/:mapId/elements`
+- `POST /reports`
+
+**UML-диаграмма:**  
+![](behavioral_command.png)
+
+**Фрагмент программного кода:**  
+```js
+const { query } = require("../db");
+
+class Command {
+  async execute() {
+    throw new Error("Метод execute должен быть переопределён");
+  }
+}
+
+class DomainReceiver {
+  async createMap(user, payload) {
+    const res = await query(
+      `INSERT INTO maps(owner_id, title, description, visibility, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, NOW(), NOW())
+       RETURNING *`,
+      [user.id, payload.title, payload.description || "", payload.visibility || "private"]
+    );
+    return res.rows[0];
+  }
+
+  async addElement(mapId, payload) {
+    const res = await query(
+      `INSERT INTO elements(map_id, type, x, y, content, style, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+       RETURNING *`,
+      [mapId, payload.type, payload.x, payload.y, payload.content || "", payload.style || {}]
+    );
+    return res.rows[0];
+  }
+
+  async createReport(user, payload) {
+    const res = await query(
+      `INSERT INTO reports(map_id, author_id, reason, comment, status, created_at)
+       VALUES ($1, $2, $3, $4, 'new', NOW())
+       RETURNING *`,
+      [payload.mapId, user.id, payload.reason, payload.comment || ""]
+    );
+    return res.rows[0];
+  }
+}
+
+class CreateMapCommand extends Command {
+  constructor(receiver, user, payload) {
+    super();
+    this.receiver = receiver;
+    this.user = user;
+    this.payload = payload;
+  }
+
+  async execute() {
+    return this.receiver.createMap(this.user, this.payload);
+  }
+}
+
+class AddElementCommand extends Command {
+  constructor(receiver, mapId, payload) {
+    super();
+    this.receiver = receiver;
+    this.mapId = mapId;
+    this.payload = payload;
+  }
+
+  async execute() {
+    return this.receiver.addElement(this.mapId, this.payload);
+  }
+}
+
+class CreateReportCommand extends Command {
+  constructor(receiver, user, payload) {
+    super();
+    this.receiver = receiver;
+    this.user = user;
+    this.payload = payload;
+  }
+
+  async execute() {
+    return this.receiver.createReport(this.user, this.payload);
+  }
+}
+
+class CommandInvoker {
+  async run(command) {
+    return command.execute();
+  }
+}
+
+module.exports = {
+  DomainReceiver,
+  CreateMapCommand,
+  AddElementCommand,
+  CreateReportCommand,
+  CommandInvoker
+};
+```
+
+**Вывод:**  
+Command позволяет сделать серверные операции более модульными и подготовить архитектуру к журналированию, очередям и откату действий.
+
+---
+
+### 3. Observer
+
+**Название:** Observer (Наблюдатель)
+
+**Общее назначение:**  
+Шаблон Observer определяет зависимость «один ко многим» между объектами так, чтобы при изменении состояния одного объекта все зависимые объекты автоматически уведомлялись.
+
+**Назначение в проекте:**  
+В проекте *Mental Maps* Observer используется для обработки доменных событий.  
+Например, после создания карты или жалобы система может:
+- записать событие в лог;
+- отправить уведомление модератору;
+- зафиксировать событие аналитики.
+
+При этом маршрут не должен знать о всех этих действиях — он просто публикует событие.
+
+**Назначение согласно реализуемому функционалу:**  
+Observer может применяться после:
+- `POST /maps`
+- `POST /reports`
+
+**UML-диаграмма:**  
+![](behavioral_observer.png)
+
+**Фрагмент программного кода:**  
+```js
+class EventPublisher {
+  constructor() {
+    this.listeners = {};
+  }
+
+  subscribe(eventName, listener) {
+    if (!this.listeners[eventName]) {
+      this.listeners[eventName] = [];
+    }
+    this.listeners[eventName].push(listener);
+  }
+
+  notify(eventName, payload) {
+    const listeners = this.listeners[eventName] || [];
+    for (const listener of listeners) {
+      listener.update(eventName, payload);
+    }
+  }
+}
+
+class AuditLogListener {
+  update(eventName, payload) {
+    console.log(`[AUDIT] event=${eventName}`, payload);
+  }
+}
+
+class ModerationListener {
+  update(eventName, payload) {
+    if (eventName === "report.created") {
+      console.log(`[MODERATION] new report received`, payload);
+    }
+  }
+}
+
+class AnalyticsListener {
+  update(eventName, payload) {
+    console.log(`[ANALYTICS] event=${eventName}`, payload);
+  }
+}
+
+module.exports = {
+  EventPublisher,
+  AuditLogListener,
+  ModerationListener,
+  AnalyticsListener
+};
+```
+
+**Вывод:**  
+Observer позволяет отделить основные действия системы от побочных реакций и уменьшает связанность компонентов.
+
+---
+
+### 4. Template Method
+
+**Название:** Template Method (Шаблонный метод)
+
+**Общее назначение:**  
+Шаблон Template Method определяет общий скелет алгоритма в базовом классе, позволяя подклассам переопределять отдельные шаги без изменения структуры алгоритма в целом.
+
+**Назначение в проекте:**  
+В проекте *Mental Maps* Template Method используется для организации общего алгоритма обработки защищённых create-операций.  
+Многие POST-обработчики имеют одинаковую структуру:
+1. проверка авторизации;
+2. валидация входных данных;
+3. подготовка объекта;
+4. сохранение в БД;
+5. формирование ответа.
+
+Этот повторяющийся алгоритм можно вынести в базовый класс, а различия между созданием карты и созданием жалобы оформить в подклассах.
+
+**Назначение согласно реализуемому функционалу:**  
+Template Method подходит для:
+- `POST /maps`
+- `POST /reports`
+
+**UML-диаграмма:**  
+![](behavioral_template_method.png)
+
+
+**Фрагмент программного кода:**  
+```js
+class BaseCreateAction {
+  async execute(req) {
+    this.authorize(req);
+    this.validate(req);
+    const prepared = this.prepare(req);
+    const saved = await this.save(prepared, req);
+    return this.format(saved);
+  }
+
+  authorize(_req) {
+    // по умолчанию ничего не делает
+  }
+
+  validate(_req) {
+    throw new Error("Метод validate должен быть переопределён");
+  }
+
+  prepare(_req) {
+    throw new Error("Метод prepare должен быть переопределён");
+  }
+
+  async save(_prepared, _req) {
+    throw new Error("Метод save должен быть переопределён");
+  }
+
+  format(saved) {
+    return saved;
+  }
+}
+
+class CreateMapAction extends BaseCreateAction {
+  constructor(receiver) {
+    super();
+    this.receiver = receiver;
+  }
+
+  validate(req) {
+    if (!req.body.title) {
+      throw new Error("Поле title обязательно");
+    }
+  }
+
+  prepare(req) {
+    return {
+      title: req.body.title,
+      description: req.body.description || "",
+      visibility: req.body.visibility || "private"
+    };
+  }
+
+  async save(prepared, req) {
+    return this.receiver.createMap(req.user, prepared);
+  }
+}
+
+class CreateReportAction extends BaseCreateAction {
+  constructor(receiver) {
+    super();
+    this.receiver = receiver;
+  }
+
+  validate(req) {
+    if (!req.body.mapId) throw new Error("Поле mapId обязательно");
+    if (!req.body.reason) throw new Error("Поле reason обязательно");
+  }
+
+  prepare(req) {
+    return {
+      mapId: req.body.mapId,
+      reason: req.body.reason,
+      comment: req.body.comment || ""
+    };
+  }
+
+  async save(prepared, req) {
+    return this.receiver.createReport(req.user, prepared);
+  }
+}
+
+module.exports = {
+  BaseCreateAction,
+  CreateMapAction,
+  CreateReportAction
+};
+```
+
+**Вывод:**  
+Template Method уменьшает дублирование кода и делает обработчики запросов более единообразными.
+
+---
+
+### 5. Chain of Responsibility
+
+**Название:** Chain of Responsibility (Цепочка обязанностей)
+
+**Общее назначение:**  
+Шаблон Chain of Responsibility позволяет передавать запрос последовательно по цепочке обработчиков, пока один из них не обработает запрос или не отклонит его.
+
+**Назначение в проекте:**  
+В проекте *Mental Maps* Chain of Responsibility используется для последовательной проверки запроса на создание элемента карты.  
+Перед тем как сохранить элемент, необходимо:
+- убедиться, что пользователь авторизован;
+- проверить существование карты;
+- проверить права доступа;
+- проверить корректность payload.
+
+Такой набор шагов удобно оформить в виде цепочки обработчиков.
+
+**Назначение согласно реализуемому функционалу:**  
+Chain of Responsibility применяется в маршруте:
+- `POST /maps/:mapId/elements`
+
+**UML-диаграмма:**  
+![](behavioral_chain_of_responsibility.png)
+
+**Фрагмент программного кода:**  
+
+```js
+const { query } = require("../db");
+const { httpError } = require("../utils/errors");
+
+class Handler {
+  setNext(handler) {
+    this.next = handler;
+    return handler;
+  }
+
+  async handle(context) {
+    if (this.next) {
+      return this.next.handle(context);
+    }
+    return context;
+  }
+}
+
+class AuthHandler extends Handler {
+  async handle(context) {
+    if (!context.req.user) {
+      throw httpError(401, "UNAUTHORIZED", "Пользователь не авторизован");
+    }
+    return super.handle(context);
+  }
+}
+
+class MapExistsHandler extends Handler {
+  async handle(context) {
+    const mapRes = await query(
+      `SELECT map_id, owner_id, visibility FROM maps WHERE map_id = $1`,
+      [context.req.params.mapId]
+    );
+
+    if (!mapRes.rows.length) {
+      throw httpError(404, "NOT_FOUND", "Карта не найдена");
+    }
+
+    context.map = mapRes.rows[0];
+    return super.handle(context);
+  }
+}
+
+class PermissionHandler extends Handler {
+  async handle(context) {
+    const { req, map } = context;
+    const canEdit = req.user.role === "moderator" || req.user.id === map.owner_id;
+
+    if (!canEdit) {
+      throw httpError(403, "FORBIDDEN", "Недостаточно прав для изменения карты");
+    }
+
+    return super.handle(context);
+  }
+}
+
+class PayloadHandler extends Handler {
+  async handle(context) {
+    const { type } = context.req.body;
+
+    if (!type || typeof type !== "string") {
+      throw httpError(400, "VALIDATION_ERROR", "Поле type обязательно");
+    }
+
+    return super.handle(context);
+  }
+}
+
+module.exports = {
+  Handler,
+  AuthHandler,
+  MapExistsHandler,
+  PermissionHandler,
+  PayloadHandler
+};
+```
+
+**Вывод:**  
+Chain of Responsibility позволяет разделить этапы валидации и сделать код обработки запроса более модульным и расширяемым.
+
+---
+
+### Общий вывод по поведенческим шаблонам
+
+В проекте *Mental Maps* были выбраны и применены пять поведенческих шаблонов GoF:
+
+- **Strategy** — для разных алгоритмов валидации элементов карты;
+- **Command** — для инкапсуляции действий пользователя как объектов;
+- **Observer** — для реакции на доменные события;
+- **Template Method** — для унификации структуры create-обработчиков;
+- **Chain of Responsibility** — для пошаговой проверки запросов.
+
+Эти шаблоны позволяют сделать backend-код более гибким, уменьшить связность и упростить развитие серверной логики.
